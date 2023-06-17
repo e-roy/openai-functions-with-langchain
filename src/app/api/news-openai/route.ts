@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
+import { Configuration, OpenAIApi } from "openai-edge";
+import { OpenAIStream, StreamingTextResponse } from "ai";
+import { ChatOpenAI } from "langchain/chat_models/openai";
 
 // break the app if the API key is missing
 if (!process.env.RAPID_API_KEY) {
   throw new Error("Missing Environment Variable RAPID_API_KEY");
 }
 
+// Create an OpenAI API client (that's edge friendly!)
+const config = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+// const openai = new OpenAIApi(config);
+
 export const runtime = "edge";
 
 export async function POST(request: Request) {
-  const { prompt } = await request.json();
+  const { messages } = await request.json();
 
   const requestHeadersOpenAI: Record<string, string> = {
     "Content-Type": "application/json",
@@ -21,16 +30,13 @@ export async function POST(request: Request) {
     "X-RapidAPI-Host": "contextualwebsearch-websearch-v1.p.rapidapi.com",
   };
 
+  const prompt = messages[0].content;
+
   // STEP 1 - OpenAI API call
 
   const bodyStep1 = {
     model: "gpt-3.5-turbo-0613",
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
+    messages,
     temperature: 0,
     functions: [
       {
@@ -120,6 +126,7 @@ export async function POST(request: Request) {
           content: JSON.stringify(filteredValues),
         },
       ],
+      stream: true,
     };
 
     const resStep3 = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -128,8 +135,9 @@ export async function POST(request: Request) {
       body: JSON.stringify(bodyStep3),
     });
 
-    const dataStep3 = await resStep3.json();
+    const stream = OpenAIStream(resStep3);
 
-    return NextResponse.json(dataStep3);
+    // Respond with the stream
+    return new StreamingTextResponse(stream);
   } else return NextResponse.json({ message });
 }

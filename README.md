@@ -1,4 +1,4 @@
-# OpenAI Functions with Pinecone
+# OpenAI Functions with Langchain
 
 This repo explores using OpenAI Functions with APIs, I'm using a RapidAPI endpoint to get news on spaceflights.
 
